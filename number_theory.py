@@ -45,3 +45,4 @@ if __name__ == "__main__":
     print("Число 17 просте:", is_prime(17))
     print("Факторіал числа 5:", factorial(5))
     print("Число 8 парне:", is_even(8))
+    
