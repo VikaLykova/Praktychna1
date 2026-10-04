@@ -41,4 +41,3 @@ def test_invalid_types():
         for value in (2.5, "5", None, True):
             with pytest.raises(TypeError):
                 function(value)
-                
