@@ -26,7 +26,7 @@ def factorial(n):
     if n < 0:
         raise ValueError("Факторіал від’ємного числа не визначений")
 
-    result = 0
+    result = 1
     for number in range(2, n + 1):
         result *= number
 
