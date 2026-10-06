@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -13,32 +13,32 @@ permissions:
   packages: write
 
 jobs:
-  # Перевірка стилю коду та функцій варіанта 5.
+  # РџРµСЂРµРІС–СЂРєР° СЃС‚РёР»СЋ РєРѕРґСѓ С‚Р° С„СѓРЅРєС†С–Р№ РІР°СЂС–Р°РЅС‚Р° 5.
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Отримати код репозиторію
+      - name: РћС‚СЂРёРјР°С‚Рё РєРѕРґ СЂРµРїРѕР·РёС‚РѕСЂС–СЋ
         uses: actions/checkout@v6
 
-      - name: Налаштувати Python
+      - name: РќР°Р»Р°С€С‚СѓРІР°С‚Рё Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Встановити залежності
+      - name: Р’СЃС‚Р°РЅРѕРІРёС‚Рё Р·Р°Р»РµР¶РЅРѕСЃС‚С–
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install flake8
 
-      - name: Перевірити стиль коду
+      - name: РџРµСЂРµРІС–СЂРёС‚Рё СЃС‚РёР»СЊ РєРѕРґСѓ
         run: flake8 .
 
-      - name: Перевірити функції варіанта 5
+      - name: РџРµСЂРµРІС–СЂРёС‚Рё С„СѓРЅРєС†С–С— РІР°СЂС–Р°РЅС‚Р° 5
         run: python -m pytest test_number_theory.py -v
 
-  # Збірка та публікація Docker-образу після успішних перевірок.
+  # Р—Р±С–СЂРєР° С‚Р° РїСѓР±Р»С–РєР°С†С–СЏ Docker-РѕР±СЂР°Р·Сѓ РїС–СЃР»СЏ СѓСЃРїС–С€РЅРёС… РїРµСЂРµРІС–СЂРѕРє.
   build-and-push-image:
     needs: build-and-test
     if: github.event_name == 'push'
@@ -49,17 +49,17 @@ jobs:
       packages: write
 
     steps:
-      - name: Отримати код репозиторію
+      - name: РћС‚СЂРёРјР°С‚Рё РєРѕРґ СЂРµРїРѕР·РёС‚РѕСЂС–СЋ
         uses: actions/checkout@v6
 
-      - name: Увійти в GitHub Container Registry
+      - name: РЈРІС–Р№С‚Рё РІ GitHub Container Registry
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "$GH_TOKEN" | docker login ghcr.io \
             -u "$GITHUB_ACTOR" --password-stdin
 
-      - name: Визначити теги Docker-образу
+      - name: Р’РёР·РЅР°С‡РёС‚Рё С‚РµРіРё Docker-РѕР±СЂР°Р·Сѓ
         id: docker-tags
         shell: bash
         run: |
@@ -67,12 +67,12 @@ jobs:
 
           TAGS="$IMAGE:$GITHUB_SHA"
 
-          # Для звичайного push у main додаємо latest.
+          # Р”Р»СЏ Р·РІРёС‡Р°Р№РЅРѕРіРѕ push Сѓ main РґРѕРґР°С”РјРѕ latest.
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
             TAGS="$TAGS $IMAGE:latest"
           fi
 
-          # Для Git-тега v1.2.3 додаємо семантичні теги.
+          # Р”Р»СЏ Git-С‚РµРіР° v1.2.3 РґРѕРґР°С”РјРѕ СЃРµРјР°РЅС‚РёС‡РЅС– С‚РµРіРё.
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
 
@@ -85,7 +85,7 @@ jobs:
               TAGS="$TAGS $IMAGE:v$MAJOR"
               TAGS="$TAGS $IMAGE:latest"
             else
-              echo "Некоректний SemVer-тег: $VERSION"
+              echo "РќРµРєРѕСЂРµРєС‚РЅРёР№ SemVer-С‚РµРі: $VERSION"
               exit 1
             fi
           fi
@@ -93,7 +93,7 @@ jobs:
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
-      - name: Зібрати Docker-образ
+      - name: Р—С–Р±СЂР°С‚Рё Docker-РѕР±СЂР°Р·
         shell: bash
         run: |
           BUILD_TAGS=""
@@ -104,14 +104,14 @@ jobs:
 
           docker build $BUILD_TAGS .
 
-      - name: Завантажити образ у реєстр
+      - name: Р—Р°РІР°РЅС‚Р°Р¶РёС‚Рё РѕР±СЂР°Р· Сѓ СЂРµС”СЃС‚СЂ
         shell: bash
         run: |
           for TAG in ${{ steps.docker-tags.outputs.tags }}; do
             docker push "$TAG"
           done
 
-  # Розгортання контейнера за допомогою Terraform.
+  # Р РѕР·РіРѕСЂС‚Р°РЅРЅСЏ РєРѕРЅС‚РµР№РЅРµСЂР° Р·Р° РґРѕРїРѕРјРѕРіРѕСЋ Terraform.
   deploy:
     needs: build-and-push-image
     if: github.event_name == 'push'
@@ -122,15 +122,15 @@ jobs:
       packages: read
 
     steps:
-      - name: Отримати код репозиторію
+      - name: РћС‚СЂРёРјР°С‚Рё РєРѕРґ СЂРµРїРѕР·РёС‚РѕСЂС–СЋ
         uses: actions/checkout@v6
 
-      - name: Встановити Terraform
+      - name: Р’СЃС‚Р°РЅРѕРІРёС‚Рё Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.*"
 
-      - name: Увійти в GitHub Container Registry
+      - name: РЈРІС–Р№С‚Рё РІ GitHub Container Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
             -u "${{ github.actor }}" --password-stdin
@@ -146,12 +146,12 @@ jobs:
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app:${GITHUB_SHA}"
           terraform apply -auto-approve -var="image_name=$IMAGE"
 
-      - name: Перевірити результат розгортання (smoke-test)
+      - name: РџРµСЂРµРІС–СЂРёС‚Рё СЂРµР·СѓР»СЊС‚Р°С‚ СЂРѕР·РіРѕСЂС‚Р°РЅРЅСЏ (smoke-test)
         shell: bash
         run: |
           docker logs ci-lab-deploy
           EXIT_CODE=$(docker inspect ci-lab-deploy --format='{{.State.ExitCode}}')
-          echo "Код завершення контейнера: $EXIT_CODE"
+          echo "РљРѕРґ Р·Р°РІРµСЂС€РµРЅРЅСЏ РєРѕРЅС‚РµР№РЅРµСЂР°: $EXIT_CODE"
           test "$EXIT_CODE" -eq 0
 
       - name: terraform destroy
