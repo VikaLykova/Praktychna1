@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: ["main"]
+    tags:
+      - "v*.*.*"
   pull_request:
     branches: ["main"]
 
@@ -36,7 +38,7 @@ jobs:
       - name: Перевірити функції варіанта 5
         run: python -m pytest test_number_theory.py -v
 
-  # Збірка та публікація образу після успішних перевірок.
+  # Збірка та публікація Docker-образу після успішних перевірок.
   build-and-push-image:
     needs: build-and-test
     if: github.event_name == 'push'
@@ -57,20 +59,56 @@ jobs:
           echo "$GH_TOKEN" | docker login ghcr.io \
             -u "$GITHUB_ACTOR" --password-stdin
 
-      - name: Зібрати Docker-образ (крок "Package")
+      - name: Визначити теги Docker-образу
+        id: docker-tags
+        shell: bash
         run: |
-          # Назва образу має містити лише малі літери.
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app"
 
-          # Створюємо тег коміту та тег останньої версії.
-          docker build \
-            -t "$IMAGE:$GITHUB_SHA" \
-            -t "$IMAGE:latest" \
-            .
+          TAGS="$IMAGE:$GITHUB_SHA"
+
+          # Для звичайного push у main додаємо latest.
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            TAGS="$TAGS $IMAGE:latest"
+          fi
+
+          # Якщо workflow запущено Git-тегом v1.2.3,
+          # додаємо семантичні теги v1.2.3, v1.2 та v1.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+
+            if [[ "$VERSION" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              MAJOR="${BASH_REMATCH[1]}"
+              MINOR="${BASH_REMATCH[2]}"
+
+              TAGS="$TAGS"
+              TAGS="$TAGS $IMAGE:$VERSION"
+              TAGS="$TAGS $IMAGE:v$MAJOR.$MINOR"
+              TAGS="$TAGS $IMAGE:v$MAJOR"
+              TAGS="$TAGS $IMAGE:latest"
+            else
+              echo "Некоректний SemVer-тег: $VERSION"
+              exit 1
+            fi
+          fi
+
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+
+      - name: Зібрати Docker-образ
+        shell: bash
+        run: |
+          BUILD_TAGS=""
+
+          for TAG in ${{ steps.docker-tags.outputs.tags }}; do
+            BUILD_TAGS="$BUILD_TAGS -t $TAG"
+          done
+
+          docker build $BUILD_TAGS .
 
       - name: Завантажити образ у реєстр
+        shell: bash
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app"
-
-          docker push "$IMAGE:$GITHUB_SHA"
-          docker push "$IMAGE:latest"
+          for TAG in ${{ steps.docker-tags.outputs.tags }}; do
+            docker push "$TAG"
+          done
