@@ -1,0 +1,5 @@
+services:
+  app:
+    image: ghcr.io/vikalykova/ci-lab-app:latest
+    container_name: ci-lab-app
+    restart: unless-stopped
