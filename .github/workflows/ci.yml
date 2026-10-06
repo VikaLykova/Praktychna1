@@ -6,7 +6,12 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
+  # Перевірка стилю коду та функцій варіанта 5.
   build-and-test:
     runs-on: ubuntu-latest
 
@@ -23,10 +28,49 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          pip install flake8
+          python -m pip install flake8
 
       - name: Перевірити стиль коду
         run: flake8 .
 
       - name: Перевірити функції варіанта 5
         run: python -m pytest test_number_theory.py -v
+
+  # Збірка та публікація образу після успішних перевірок.
+  build-and-push-image:
+    needs: build-and-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Отримати код репозиторію
+        uses: actions/checkout@v6
+
+      - name: Увійти в GitHub Container Registry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io \
+            -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Зібрати Docker-образ (крок "Package")
+        run: |
+          # Назва образу має містити лише малі літери.
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app"
+
+          # Створюємо тег коміту та тег останньої версії.
+          docker build \
+            -t "$IMAGE:$GITHUB_SHA" \
+            -t "$IMAGE:latest" \
+            .
+
+      - name: Завантажити образ у реєстр
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app"
+
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:latest"
