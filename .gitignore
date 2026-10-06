@@ -4,3 +4,8 @@ infra/*.tfstate.backup__pycache__/
 __pycache__/
 infra/*.tfstate
 infra/*.tfstate.backup
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
