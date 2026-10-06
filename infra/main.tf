@@ -20,3 +20,9 @@ resource "docker_container" "app" {
   rm       = false
   must_run = false
 }
+
+output "container_id" {
+  description = "Ідентифікатор створеного Docker-контейнера"
+  value       = docker_container.app.id
+}
+

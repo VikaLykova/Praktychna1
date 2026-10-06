@@ -146,6 +146,10 @@ jobs:
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app:${GITHUB_SHA}"
           terraform apply -auto-approve -var="image_name=$IMAGE"
 
+      - name: Показати Terraform output
+        working-directory: infra
+        run: terraform output
+
       - name: РџРµСЂРµРІС–СЂРёС‚Рё СЂРµР·СѓР»СЊС‚Р°С‚ СЂРѕР·РіРѕСЂС‚Р°РЅРЅСЏ (smoke-test)
         shell: bash
         run: |
@@ -161,3 +165,4 @@ jobs:
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app:${GITHUB_SHA}"
           terraform destroy -auto-approve -var="image_name=$IMAGE"
+
