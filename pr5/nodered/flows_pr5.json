@@ -1,0 +1,369 @@
+[
+    {
+        "id": "f8e306b2f76e8599",
+        "type": "tab",
+        "label": "ПР5 — конвеєр PM2.5",
+        "disabled": false,
+        "info": "MQTT → обробка → PostgreSQL"
+    },
+    {
+        "id": "68c96e5206212d61",
+        "type": "comment",
+        "z": "f8e306b2f76e8599",
+        "name": "① Прийом телеметрії станцій",
+        "info": "",
+        "x": 170,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "75467342809ecf35",
+        "type": "mqtt in",
+        "z": "f8e306b2f76e8599",
+        "name": "Телеметрія станцій",
+        "topic": "kharkiv/waste/+/telemetry",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "pr5broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 120,
+        "wires": [
+            [
+                "5b5cfa2ac666b08f",
+                "fce36d6706dc480e"
+            ]
+        ]
+    },
+    {
+        "id": "fce36d6706dc480e",
+        "type": "debug",
+        "z": "f8e306b2f76e8599",
+        "name": "Сирі повідомлення",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 330,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "330d0907827151d9",
+        "type": "comment",
+        "z": "f8e306b2f76e8599",
+        "name": "② Перевірка → ③ AQI, згладжування, тривога → ④ запис у PostgreSQL",
+        "info": "",
+        "x": 700,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "5b5cfa2ac666b08f",
+        "type": "function",
+        "z": "f8e306b2f76e8599",
+        "name": "Перевірка даних",
+        "func": "const bin = msg.topic.split(\"/\")[2];\nconst d = msg.payload;\n\nconst ok = (v, lo, hi) =>\n    typeof v === \"number\" && v >= lo && v <= hi;\n\nconst errors = [];\n\nif (!ok(d.d, 0, 150)) errors.push(\"d\");\nif (d.h !== 120) errors.push(\"h\");\nif (!Number.isInteger(d.ts)) errors.push(\"ts\");\n\nif (errors.length > 0) {\n    const n = (context.get(\"rejected\") || 0) + 1;\n    context.set(\"rejected\", n);\n\n    node.status({\n        fill: \"red\",\n        shape: \"dot\",\n        text: `відхилено: ${n}`\n    });\n\n    msg.payload = {\n        bin: bin,\n        errors: errors,\n        raw: d\n    };\n\n    return [null, msg];\n}\n\nmsg.bin = bin;\nmsg.ts = d.ts;\n\nmsg.payload = {\n    d: d.d,\n    h: d.h\n};\n\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 120,
+        "wires": [
+            [
+                "a0f31c7201bec54b"
+            ],
+            [
+                "fcbaa2e0330b3f55"
+            ]
+        ]
+    },
+    {
+        "id": "fcbaa2e0330b3f55",
+        "type": "debug",
+        "z": "f8e306b2f76e8599",
+        "name": "Відхилені",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 580,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "a0f31c7201bec54b",
+        "type": "function",
+        "z": "f8e306b2f76e8599",
+        "name": "AQI, згладжування, тривога",
+        "func": "const ALPHA = 0.2;\nconst ON = 80.0;\nconst OFF = 30.0;\n\nconst d = msg.payload.d;\nconst H = msg.payload.h;\n\nconst fill = (H - d) / H * 100;\n\nconst key = \"st_\" + msg.bin;\nconst st = context.get(key) || {\n    ema: null,\n    alarm: 0,\n    prevEma: null,\n    prevTs: null\n};\n\nst.ema = st.ema === null\n    ? fill\n    : ALPHA * fill + (1 - ALPHA) * st.ema;\n\nlet rate = null;\n\nif (st.prevEma !== null && st.prevTs !== null) {\n    const hours = (msg.ts - st.prevTs) / 3600000;\n    if (hours > 0) {\n        rate = (st.ema - st.prevEma) / hours;\n    }\n}\n\nlet t100 = null;\n\nif (rate !== null && rate > 0) {\n    t100 = (100 - st.ema) / rate;\n}\n\nconst before = st.alarm;\n\nif (st.alarm === 0 && st.ema >= ON) {\n    st.alarm = 1;\n}\n\nif (st.alarm === 1 && st.ema <= OFF) {\n    st.alarm = 0;\n}\n\nst.prevEma = st.ema;\nst.prevTs = msg.ts;\n\ncontext.set(key, st);\n\nmsg.payload = {\n    d: Math.round(d * 10) / 10,\n    h: H,\n    fill: Math.round(fill * 10) / 10,\n    fill_ema: Math.round(st.ema * 10) / 10,\n    rate: rate === null ? null : Math.round(rate * 10) / 10,\n    t100: t100 === null ? null : Math.round(t100 * 10) / 10,\n    alarm: st.alarm\n};\n\nlet alarmMsg = null;\n\nif (st.alarm !== before) {\n    alarmMsg = {\n        topic: `kharkiv/waste/${msg.bin}/alarm`,\n        payload: JSON.stringify({\n            ts: msg.ts,\n            alarm: st.alarm,\n            fill_ema: msg.payload.fill_ema\n        })\n    };\n}\n\nreturn [msg, alarmMsg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 120,
+        "wires": [
+            [
+                "331fae65e437fabd"
+            ],
+            [
+                "18a72a42dac1df9d",
+                "21a5e451133a980b"
+            ]
+        ]
+    },
+    {
+        "id": "18a72a42dac1df9d",
+        "type": "mqtt out",
+        "z": "f8e306b2f76e8599",
+        "name": "Публікація тривог",
+        "topic": "",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "pr5broker",
+        "x": 890,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "21a5e451133a980b",
+        "type": "debug",
+        "z": "f8e306b2f76e8599",
+        "name": "Тривоги",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 870,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "331fae65e437fabd",
+        "type": "function",
+        "z": "f8e306b2f76e8599",
+        "name": "Параметри запиту",
+        "func": "const p = msg.payload;\n\nmsg.params = [\n    msg.ts,\n    msg.bin,\n    p.d,\n    p.h,\n    p.fill,\n    p.fill_ema,\n    p.rate,\n    p.t100,\n    p.alarm,\n    Date.now() - msg.ts\n];\n\n// Тимчасова перевірка\nnode.warn(msg.params);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 120,
+        "wires": [
+            [
+                "217bcd9eeaf2a9f8"
+            ]
+        ]
+    },
+    {
+        "id": "b6e838c5b0491725",
+        "type": "comment",
+        "z": "f8e306b2f76e8599",
+        "name": "Стан станцій (online/offline, LWT)",
+        "info": "",
+        "x": 190,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "4ed1b0811b82114a",
+        "type": "mqtt in",
+        "z": "f8e306b2f76e8599",
+        "name": "Стан станцій",
+        "topic": "kharkiv/waste/+/status",
+        "qos": "1",
+        "datatype": "utf8",
+        "broker": "pr5broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 400,
+        "wires": [
+            [
+                "c9b85c35a24b26c1"
+            ]
+        ]
+    },
+    {
+        "id": "c9b85c35a24b26c1",
+        "type": "function",
+        "z": "f8e306b2f76e8599",
+        "name": "Стан → параметри",
+        "func": "const bin = msg.topic.split(\"/\")[2];\nconst online = msg.payload === \"online\" ? 1 : 0;\n\nmsg.params = [bin, online];\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 400,
+        "wires": [
+            [
+                "95194e460e2c58f0"
+            ]
+        ]
+    },
+    {
+        "id": "217bcd9eeaf2a9f8",
+        "type": "postgresql",
+        "z": "f8e306b2f76e8599",
+        "name": "PostgreSQL: виміри",
+        "query": "INSERT INTO waste (\n    ts, bin, d, h, fill, fill_ema,\n    rate, t100, alarm, lag_ms\n)\nVALUES (\n    to_timestamp($1 / 1000.0),\n    $2, $3, $4, $5, $6, $7, $8, $9, $10\n)\nON CONFLICT (bin, ts) DO NOTHING;",
+        "postgreSQLConfig": "pr5pg",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1110,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "95194e460e2c58f0",
+        "type": "postgresql",
+        "z": "f8e306b2f76e8599",
+        "name": "PostgreSQL: стан",
+        "query": "INSERT INTO bin_status (bin, online)\nVALUES ($1, $2);",
+        "postgreSQLConfig": "pr5pg",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 640,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ad815293adea739c",
+        "type": "catch",
+        "z": "f8e306b2f76e8599",
+        "name": "Помилки бази даних",
+        "scope": [
+            "217bcd9eeaf2a9f8",
+            "95194e460e2c58f0"
+        ],
+        "uncaught": false,
+        "x": 1110,
+        "y": 260,
+        "wires": [
+            [
+                "9eae53a1e56c815d"
+            ]
+        ]
+    },
+    {
+        "id": "9eae53a1e56c815d",
+        "type": "debug",
+        "z": "f8e306b2f76e8599",
+        "name": "Помилки запису",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "error",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "counter",
+        "x": 1360,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "pr5broker",
+        "type": "mqtt-broker",
+        "name": "Mosquitto",
+        "broker": "mosquitto",
+        "port": "1883",
+        "clientid": "nodered-pr5",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": false,
+        "autoUnsubscribe": false,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "pr5pg",
+        "type": "postgreSQLConfig",
+        "name": "PostgreSQL",
+        "host": "PGHOST",
+        "hostFieldType": "env",
+        "port": "PGPORT",
+        "portFieldType": "env",
+        "database": "PGDATABASE",
+        "databaseFieldType": "env",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "applicationName": "nodered-pr5",
+        "applicationNameType": "str",
+        "max": "10",
+        "maxFieldType": "num",
+        "idle": "1000",
+        "idleFieldType": "num",
+        "connectionTimeout": "10000",
+        "connectionTimeoutFieldType": "num",
+        "userFieldType": "env",
+        "userEnv": "PGUSER",
+        "passwordFieldType": "env",
+        "passwordEnv": "PGPASSWORD"
+    },
+    {
+        "id": "936768ccba551e7d",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-postgresql": "0.16.2"
+        }
+    }
+]
