@@ -28,6 +28,95 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.4.14",
+      "targets": [
+        {
+          "dataset": "city",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH w AS (\r\n    SELECT\r\n        bin,\r\n        ts,\r\n        fill_ema,\r\n        EXTRACT(EPOCH FROM ts) / 3600.0 AS t_hours\r\n    FROM waste\r\n    WHERE ts >= NOW() - INTERVAL '30 minutes'\r\n      AND fill_ema IS NOT NULL\r\n),\r\nrates AS (\r\n    SELECT\r\n        bin,\r\n        regr_slope(fill_ema, t_hours) AS rate\r\n    FROM w\r\n    GROUP BY bin\r\n),\r\nlatest AS (\r\n    SELECT DISTINCT ON (bin)\r\n        bin,\r\n        fill_ema\r\n    FROM w\r\n    ORDER BY bin, ts DESC\r\n)\r\nSELECT\r\n    l.bin,\r\n    ROUND(\r\n        CASE\r\n            WHEN r.rate > 0.5 AND l.fill_ema < 99\r\n            THEN ((100 - l.fill_ema) / r.rate)::numeric\r\n            ELSE NULL\r\n        END,\r\n        1\r\n    ) AS t100\r\nFROM latest l\r\nJOIN rates r USING (bin)\r\nORDER BY l.bin;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Прогноз часу до заповнення t100, год",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pg-pr5"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -86,7 +175,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 8
       },
       "id": 6,
       "options": {
@@ -172,7 +261,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 16
       },
       "id": 5,
       "options": {
@@ -285,7 +374,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "id": 4,
       "options": {
@@ -390,7 +479,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 32
       },
       "id": 3,
       "options": {
@@ -472,7 +561,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 40
       },
       "id": 2,
       "options": {
@@ -588,7 +677,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "id": 1,
       "options": {
@@ -655,6 +744,6 @@
   "timezone": "browser",
   "title": "ПР5 — Контейнери відходів",
   "uid": "ad58w9f",
-  "version": 6,
+  "version": 9,
   "weekStart": ""
 }
