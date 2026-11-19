@@ -1,3 +1,10 @@
 source,label,n,E_R_J,E_R_ci95,t_R_s,P_W,O_mg,M_mg,SCI_mg
 local · CodeCarbon,baseline,5,45.661,0.441,1.764,25.88,3.1768,3.1142,6.2911
 local · CodeCarbon,optimized,5,1.154,0.091,0.0438,26.32,0.0803,0.0774,0.1577
+local · CodeCarbon,variant,5,5.083,0.77,0.1292,39.82,0.3536,0.2281,0.5817
+ci · CodeCarbon,baseline,3,13.142,0.72,1.1526,11.4,1.673,0.3289,2.0018
+ci · CodeCarbon,optimized,3,0.291,0.015,0.0246,11.84,0.037,0.007,0.044
+ci · CodeCarbon,variant,3,1.097,0.03,0.0721,15.22,0.1397,0.0206,0.1603
+ci · Eco CI,baseline,1,4.832,,1.1807,4.09,0.6151,0.3369,0.952
+ci · Eco CI,optimized,1,0.103,,0.0253,4.09,0.0132,0.0072,0.0204
+ci · Eco CI,variant,1,0.43,,0.0741,5.8,0.0547,0.0211,0.0758
