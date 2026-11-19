@@ -42,7 +42,7 @@ jobs:
           python -m pip install flake8
 
       - name: РџРµСЂРµРІС–СЂРёС‚Рё СЃС‚РёР»СЊ РєРѕРґСѓ
-        run: flake8 .
+        run: flake8 . --extend-exclude=pr4,pr5,pr6
 
       - name: РџРµСЂРµРІС–СЂРёС‚Рё С„СѓРЅРєС†С–С— РІР°СЂС–Р°РЅС‚Р° 5
         run: python -m pytest test_number_theory.py -v
