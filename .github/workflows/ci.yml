@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -18,6 +18,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Eco CI - Start measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: start-measurement
+          send-data: false
+          co2-calculation-method: constant
+          co2-grid-intensity-constant: 458
+          json-output: true
+
       - name: РћС‚СЂРёРјР°С‚Рё РєРѕРґ СЂРµРїРѕР·РёС‚РѕСЂС–СЋ
         uses: actions/checkout@v6
 
@@ -38,7 +47,25 @@ jobs:
       - name: РџРµСЂРµРІС–СЂРёС‚Рё С„СѓРЅРєС†С–С— РІР°СЂС–Р°РЅС‚Р° 5
         run: python -m pytest test_number_theory.py -v
 
+
+      - name: Eco CI - Measure energy
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: get-measurement
+          label: total-job
+
+      - name: Eco CI - Show results
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: display-results
+          send-data: false
+          display-badge: false
+
   # Р—Р±С–СЂРєР° С‚Р° РїСѓР±Р»С–РєР°С†С–СЏ Docker-РѕР±СЂР°Р·Сѓ РїС–СЃР»СЏ СѓСЃРїС–С€РЅРёС… РїРµСЂРµРІС–СЂРѕРє.
+
+
   build-and-push-image:
     needs: build-and-test
     if: github.event_name == 'push'
@@ -49,6 +76,15 @@ jobs:
       packages: write
 
     steps:
+      - name: Eco CI - Start measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: start-measurement
+          send-data: false
+          co2-calculation-method: constant
+          co2-grid-intensity-constant: 458
+          json-output: true
+
       - name: РћС‚СЂРёРјР°С‚Рё РєРѕРґ СЂРµРїРѕР·РёС‚РѕСЂС–СЋ
         uses: actions/checkout@v6
 
@@ -111,7 +147,25 @@ jobs:
             docker push "$TAG"
           done
 
+
+      - name: Eco CI - Measure energy
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: get-measurement
+          label: total-job
+
+      - name: Eco CI - Show results
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: display-results
+          send-data: false
+          display-badge: false
+
   # Р РѕР·РіРѕСЂС‚Р°РЅРЅСЏ РєРѕРЅС‚РµР№РЅРµСЂР° Р·Р° РґРѕРїРѕРјРѕРіРѕСЋ Terraform.
+
+
   deploy:
     needs: build-and-push-image
     if: github.event_name == 'push'
@@ -122,6 +176,15 @@ jobs:
       packages: read
 
     steps:
+      - name: Eco CI - Start measurement
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: start-measurement
+          send-data: false
+          co2-calculation-method: constant
+          co2-grid-intensity-constant: 458
+          json-output: true
+
       - name: РћС‚СЂРёРјР°С‚Рё РєРѕРґ СЂРµРїРѕР·РёС‚РѕСЂС–СЋ
         uses: actions/checkout@v6
 
@@ -166,3 +229,17 @@ jobs:
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ci-lab-app:${GITHUB_SHA}"
           terraform destroy -auto-approve -var="image_name=$IMAGE"
 
+      - name: Eco CI - Measure energy
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: get-measurement
+          label: total-job
+
+      - name: Eco CI - Show results
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: display-results
+          send-data: false
+          display-badge: false
