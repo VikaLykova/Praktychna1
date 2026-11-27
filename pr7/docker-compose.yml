@@ -1,0 +1,40 @@
+# Альтернатива локальному встановленню (крок 1, спосіб Б): PostgreSQL 16 + pgAdmin 4 у Docker.
+# Запуск з папки pr7:  docker compose up -d      Зупинка:  docker compose down
+# pgAdmin: http://localhost:8080 (сервер «PR7 (docker)» уже додано, пароль postgres).
+# Дані бази зберігаються в томі pgdata і не зникають після зупинки контейнерів.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres        # лише для навчальної бази на власному комп'ютері
+      POSTGRES_DB: cityair
+    ports:
+      - "5432:5432"                      # якщо порт зайнятий локальним PostgreSQL: "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cityair"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:9
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@domain.com     # формальний обліковий запис (у режимі без входу не використовується)
+      PGADMIN_DEFAULT_PASSWORD: postgres
+      PGADMIN_CONFIG_SERVER_MODE: "False"        # режим «як на ноутбуці»: без входу, PSQL Tool увімкнено
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/servers.json:/pgadmin4/servers.json:ro
+      - ./:/pr7:ro                               # файли роботи доступні в PSQL Tool як /pr7/...
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

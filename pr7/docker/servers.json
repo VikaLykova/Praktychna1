@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "PR7 (docker)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "cityair",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
