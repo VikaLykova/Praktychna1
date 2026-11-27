@@ -85,6 +85,20 @@ SELECT NOT EXISTS (
   COMMIT;
 \endif
 
+-- ---------- V7: періодичність вивезення ----------
+SELECT NOT EXISTS (
+    SELECT 1 FROM schema_history WHERE version = 7
+) AS todo \gset
+
+\if :todo
+  \echo 'V7__collection_interval.sql: applying'
+  BEGIN;
+  \ir migration/V7__collection_interval.sql
+  INSERT INTO schema_history (version, script)
+  VALUES (7, 'V7__collection_interval.sql');
+  COMMIT;
+\endif
+
 \echo 'Schema history:'
 SELECT version, script, to_char(installed_on, 'YYYY-MM-DD HH24:MI') AS installed
 FROM schema_history ORDER BY version;
